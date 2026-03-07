@@ -23,7 +23,7 @@ leaves your machine.
 
 ## Relationship Graph
 
-<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/graphs.png" width="743">
+<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/newplot.png" width="750">
 
 Visualizes your inbox as an **ego network** centered on you.
 
@@ -37,6 +37,8 @@ A **Gantt-style timeline** of when each relationship was active.
 
 Shows: - first contact - last contact - total message volume -
 relationship duration
+
+<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/graphs.png" width="743">
 
 ## Reciprocity Analysis
 
