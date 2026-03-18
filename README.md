@@ -1,190 +1,115 @@
 # Inbox Archeology
 
-**Inbox Archeology** is a local-first tool that analyzes your **Gmail
-Takeout export** to reconstruct the social history of your inbox.
+Explore your exported message data like a personal time machine.
 
-It transforms a raw `.mbox` archive into an interactive dashboard
-showing:
+Inbox Archeology transforms your Google Takeout data into a searchable, visual archive — helping you rediscover conversations, patterns, and moments you forgot existed.
 
--   who you communicated with most
--   how relationships evolved over time
--   reciprocity patterns (who wrote whom)
--   long-term communication timelines
--   core vs peripheral relationships
+---
 
-<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/Dashboard.png" width="743">
+## Why this exists
 
-Everything runs **entirely on your computer**. Your email data never
-leaves your machine.
+Modern platforms store years of your life, but give you almost no meaningful way to explore it.
 
-------------------------------------------------------------------------
+This project is part of a broader effort toward:
+- Digital sovereignty
+- Data portability
+- Personal archives that belong to you
 
-# Features
+Your data should be usable, not buried.
 
-## Relationship Graph
+---
 
-<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/newplot.png" width="750">
+## Features
 
-Visualizes your inbox as an **ego network** centered on you.
+- Parse and explore Google Takeout message data
+- Search and filter conversations
+- Visualize communication patterns
+- Fully local — your data never leaves your machine
 
--   node size = message volume\
--   color = relationship tier (core / recurring / peripheral)\
--   hover for details
+---
 
-## Timeline Visualization
+## Live Demo
 
-A **Gantt-style timeline** of when each relationship was active.
+(Add GitHub Pages link here if available)
 
-Shows: - first contact - last contact - total message volume -
-relationship duration
+---
 
-<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/graphs.png" width="743">
+## Quick Start
 
-## Reciprocity Analysis
+```bash
+git clone https://github.com/monapdx/Inbox-Archeology.git
+cd Inbox-Archeology
+npm install
+npm run dev
+```
 
-Scatterplot of **sent vs received messages** revealing:
+Then open your browser and follow the on-screen instructions.
 
--   balanced relationships
--   one-sided communication
--   broadcast-style contacts
+---
 
-## Lifecycle Analysis
+## Demo Data
 
-Relationship duration vs message volume highlights:
+If you don’t have a Google Takeout export ready, a sample dataset can be added (see Issues).
 
--   long but quiet connections
--   intense short-term exchanges
--   durable high-volume relationships
+---
 
-## CORE Relationship Density
+## Use Cases
 
-Tracks how many of your **core relationships** were active each year.
+- Rediscover old conversations
+- Analyze communication patterns over time
+- Build personal data archives
+- Experiment with local-first data tools
 
-------------------------------------------------------------------------
+---
 
-# Architecture
+## Get Involved
 
-Gmail Takeout (.mbox) ↓ extract_headers ↓ extract_relationships ↓
-filter_relationships ↓ clean_relationships ↓ build_core_timeline ↓
-Streamlit Dashboard
+This project is actively evolving and open to contributions.
 
-Each processing step is modular and lives in the **`steps/` directory**.
+Ways to contribute:
+- ⭐ Star the repo if you find it interesting
+- 🐛 Report bugs or unexpected behavior
+- 💡 Suggest features or ideas
+- 🔧 Pick an issue and submit a PR
 
-------------------------------------------------------------------------
+👉 Check out the Issues tab to get started
 
-# Project Structure
+---
 
-Inbox-Archeology │ ├── app.py ├── pipeline.py ├── dashboard.py ├──
-requirements.txt ├── launch_inbox_archeology.bat │ ├── steps/ │ ├──
-extract_headers.py │ ├── extract_relationships.py │ ├──
-filter_relationships.py │ ├── clean_relationships.py │ ├──
-analyze_relationships.py │ ├── reanalyze_clean_relationships.py │ ├──
-build_core_timeline.py │ ├── preview_core_timeline.py │ └──
-plot_core_timeline.py │ ├── input/ ├── output/ └── workspaces/
+## Contributing
 
-------------------------------------------------------------------------
+1. Fork the repo  
+2. Install dependencies  
+3. Pick an issue labeled "good first issue"  
+4. Submit a pull request  
 
-# Installation
+Not sure where to start? Open an issue or comment on one — guidance is welcome.
 
-## Requirements
+---
 
--   Python **3.10+**
--   Gmail Takeout export (`.mbox`)
+## Roadmap (high-level)
 
-------------------------------------------------------------------------
+- Improved onboarding experience
+- More visualization options (timeline, heatmaps)
+- Support for additional data sources
+- Export options (CSV, etc.)
+- Desktop version
 
-## Quick Start (Windows)
+---
 
-Run the launcher:
+## Philosophy
 
-launch_inbox_archeology.bat
+Inbox Archeology is part of a larger idea:
 
-This will: 1. create a virtual environment 2. install dependencies 3.
-launch the Streamlit dashboard
+You should be able to:
+- Export your data
+- Understand your data
+- Use your data outside of platforms
 
-------------------------------------------------------------------------
+Without needing permission.
 
-## Manual Installation
+---
 
-python -m venv .venv
+## License
 
-Activate:
-
-.venv`\Scripts`{=tex}`\activate`{=tex}
-
-Install dependencies:
-
-pip install -r requirements.txt
-
-Run the app:
-
-streamlit run app.py
-
-------------------------------------------------------------------------
-
-# Using Your Gmail Export
-
-1.  Download your Gmail data via **Google Takeout**
-2.  Locate the file:
-
-All Mail.mbox
-
-3.  Copy it into:
-
-input/
-
-4.  Start the app
-5.  Select the `.mbox` file and run the pipeline
-
-Large inbox exports (multiple GB) are supported.
-
-------------------------------------------------------------------------
-
-# Privacy
-
-Inbox Archeology is designed for **personal local analysis**.
-
--   No network calls
--   No cloud services
--   No telemetry
--   No external APIs
-
-Your email archive **never leaves your machine**.
-
-------------------------------------------------------------------------
-
-# Configuration
-
-Optional `.env` file:
-
-SELF_EMAILS=your_email@gmail.com
-AUTOMATED_DOMAINS=facebookmail.com,google.com
-AUTOMATED_PREFIXES=no-reply@,notifications@
-
-This allows you to filter automated emails and correctly identify your
-own addresses.
-
-------------------------------------------------------------------------
-
-# Roadmap
-
-Potential future improvements:
-
--   force-directed network graph
--   relationship clustering
--   attachment analysis
--   subject/topic modeling
--   email frequency heatmaps
--   multi-account support
-
-------------------------------------------------------------------------
-
-# License
-
-MIT License
-
-------------------------------------------------------------------------
-
-# Author
-
-Created by **Ashly Lorenzana**
+MIT
