@@ -29,12 +29,45 @@ Inbox Archeology transforms your Google Takeout data into a searchable, visual a
 
 ## Quick Start
 
+### What you need
+
+- Python 3.10+
+- A Gmail Takeout export containing `All Mail.mbox`
+
+### 1. Download the project
+
 ```bash
 git clone https://github.com/monapdx/Inbox-Archeology.git
 cd Inbox-Archeology
-npm install
-npm run dev
 ```
+
+### 2. Install dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Start the app
+
+```bash
+streamlit run app.py
+```
+
+### 4. Add your Gmail export
+
+When the app opens in your browser:
+
+1. Find your Gmail Takeout file named `All Mail.mbox`
+2. Copy it into the local `input/` folder shown in the sidebar
+3. Click **Refresh list**
+4. Select the `.mbox` file
+5. Click **Run Inbox Archeology**
+
+### Expected result
+
+After the pipeline finishes, the app saves results in `workspaces/<run-name>/output/` and can open the dashboard automatically.
 
 ---
 
