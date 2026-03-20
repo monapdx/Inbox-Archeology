@@ -44,7 +44,7 @@ def pick_mbox(input_dir: Path | None = None) -> Path:
     if not candidates:
         raise FileNotFoundError(
             f"No .mbox file found in: {base}\n"
-            "Put your Gmail Takeout .mbox file there and rerun."
+            "Please ensure your Gmail Takeout .mbox file is placed in the "input" folder and has read permissions."
         )
 
     candidates.sort(key=lambda p: p.stat().st_size, reverse=True)
@@ -69,11 +69,14 @@ def _run_subprocess(step: str, cmd: list[str], cwd: Path) -> None:
     print(f"\n→ {step}")
     print("  " + " ".join(cmd))
 
-    result = subprocess.run(cmd, cwd=cwd)
+    # Captured stderr for better user feedback
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
     if result.returncode != 0:
+        error_msg = result.stderr.strip() or "No specific error captured from stderr."
+        print(f"🚨 Error in step {step}:\n{error_msg}")
         raise RuntimeError(
-            f"Pipeline stopped at step: {step} (exit code {result.returncode})"
+            f"Pipeline stopped at step: {step} (exit code {result.returncode}).\nDetails: {error_msg}"
         )
 
 
