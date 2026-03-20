@@ -1,8 +1,10 @@
-streamlit
-pandas
-numpy
-plotly
-matplotlib
-beautifulsoup4
-scikit-learn
-python-dotenv
+# Updated 'requirements.txt' with pinned versions for reproducibility and without unused packages
+
+streamlit==1.16.0
+pandas==1.4.3
+numpy==1.22.3
+plotly==5.8.2
+matplotlib==3.5.1
+beautifulsoup4==4.11.1
+scikit-learn==1.0.2
+python-dotenv==0.20.0
