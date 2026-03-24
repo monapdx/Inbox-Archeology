@@ -11,7 +11,9 @@ APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
+from config import INPUT_DIR, WORKSPACES_DIR  # noqa: E402
 from pipeline import run_pipeline  # noqa: E402
+from workspace_utils import read_metadata  # noqa: E402
 
 
 STREAMLIT_UPLOAD_LIMIT_MB = 200
@@ -76,6 +78,16 @@ def list_workspaces(workspaces_dir: Path) -> list[Path]:
     return items
 
 
+def workspace_status_label(workspace_dir: Path) -> str:
+    meta = read_metadata(workspace_dir)
+    status = meta.get("status", "unknown")
+    step = meta.get("last_completed_step") or meta.get("last_step") or ""
+
+    if step:
+        return f"{workspace_dir.name} — {status} — {step}"
+    return f"{workspace_dir.name} — {status}"
+
+
 def open_dashboard_for(out_dir: Path) -> None:
     st.session_state.dashboard_out_dir = str(out_dir.resolve())
     st.session_state.show_dashboard = True
@@ -105,12 +117,8 @@ def render_dashboard_view() -> None:
 def main() -> None:
     st.set_page_config(page_title="Inbox Archeology", layout="wide")
 
-    project_root = APP_DIR
-    input_dir = project_root / "input"
-    workspaces_dir = project_root / "workspaces"
-
-    input_dir.mkdir(parents=True, exist_ok=True)
-    workspaces_dir.mkdir(parents=True, exist_ok=True)
+    input_dir = INPUT_DIR
+    workspaces_dir = WORKSPACES_DIR
 
     if "show_dashboard" not in st.session_state:
         st.session_state.show_dashboard = False
@@ -150,7 +158,7 @@ def main() -> None:
         selected_workspace = st.selectbox(
             "Previously completed runs",
             options=completed_workspaces,
-            format_func=lambda p: p.name,
+            format_func=workspace_status_label,
             key="existing_workspace_select",
         )
 
@@ -255,12 +263,23 @@ def main() -> None:
 
     st.caption(f"Workspace: {workspace_dir}")
 
+    meta = read_metadata(workspace_dir)
+    if meta:
+        status = meta.get("status", "unknown")
+        last_step = meta.get("last_completed_step") or meta.get("last_step")
+        if last_step:
+            st.caption(f"Workspace status: {status} — {last_step}")
+        else:
+            st.caption(f"Workspace status: {status}")
+
     if workspace_has_results(workspace_dir):
         st.info("This workspace already contains saved results.")
         if st.button("Open this workspace now", use_container_width=True):
             open_dashboard_for(workspace_output_dir(workspace_dir))
 
     st.header("3) Run Analysis")
+
+    force_rerun = st.checkbox("Re-run completed steps", value=False)
 
     run_clicked = st.button(
         "Run Inbox Archeology",
@@ -282,7 +301,8 @@ def main() -> None:
                 outputs = run_pipeline(
                     mbox_path=mbox_path,
                     work_dir=workspace_dir,
-                    progress_cb=progress_cb
+                    progress_cb=progress_cb,
+                    force=force_rerun,
                 )
             except Exception as e:
                 st.error("Pipeline failed")

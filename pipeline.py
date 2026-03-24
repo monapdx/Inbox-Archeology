@@ -6,7 +6,9 @@ import subprocess
 import sys
 from typing import Callable
 
-HERE = Path(__file__).resolve().parent
+from config import BASE_DIR
+from workspace_utils import update_metadata
+
 PY = sys.executable
 
 
@@ -31,29 +33,9 @@ def assert_mbox_ok(mbox: Path) -> None:
         print(f"Warning: MBOX is very small: {mbox} ({size} bytes)")
 
 
-def pick_mbox(input_dir: Path | None = None) -> Path:
-    base = input_dir or HERE
-    preferred_names = ["All mail.mbox", "All Mail.mbox"]
-
-    for name in preferred_names:
-        preferred = base / name
-        if preferred.exists():
-            return preferred
-
-    candidates = list(base.glob("*.mbox"))
-    if not candidates:
-        raise FileNotFoundError(
-            f"No .mbox file found in: {base}\n"
-            "Please ensure your Gmail Takeout .mbox file is placed in the "input" folder and has read permissions."
-        )
-
-    candidates.sort(key=lambda p: p.stat().st_size, reverse=True)
-    return candidates[0]
-
-
 def _step_script(step_name: str) -> Path:
-    direct = HERE / f"{step_name}.py"
-    nested = HERE / "steps" / f"{step_name}.py"
+    direct = BASE_DIR / f"{step_name}.py"
+    nested = BASE_DIR / "steps" / f"{step_name}.py"
 
     if direct.exists():
         return direct
@@ -61,29 +43,56 @@ def _step_script(step_name: str) -> Path:
         return nested
 
     raise FileNotFoundError(
-        f"Could not find script for step '{step_name}' in {HERE} or {HERE / 'steps'}"
+        f"Could not find script for step '{step_name}' in {BASE_DIR} or {BASE_DIR / 'steps'}"
     )
 
 
-def _run_subprocess(step: str, cmd: list[str], cwd: Path) -> None:
+def _run_subprocess(
+    step: str,
+    cmd: list[str],
+    cwd: Path,
+    progress_cb: Callable[[float, str | None], None] | None = None,
+    step_progress_base: float | None = None,
+    step_progress_span: float | None = None,
+) -> None:
     print(f"\n→ {step}")
     print("  " + " ".join(cmd))
 
-    # Captured stderr for better user feedback
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    process = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
 
-    if result.returncode != 0:
-        error_msg = result.stderr.strip() or "No specific error captured from stderr."
-        print(f"🚨 Error in step {step}:\n{error_msg}")
-        raise RuntimeError(
-            f"Pipeline stopped at step: {step} (exit code {result.returncode}).\nDetails: {error_msg}"
-        )
+    assert process.stdout is not None
+
+    for raw_line in process.stdout:
+        line = raw_line.rstrip()
+        print(line)
+
+        # Optional convention for step scripts:
+        # print("PROGRESS:12345")
+        if progress_cb and step_progress_base is not None and step_progress_span is not None:
+            if line.startswith("PROGRESS:"):
+                msg = line.split(":", 1)[1].strip()
+                progress_cb(
+                    min(0.99, step_progress_base + step_progress_span * 0.5),
+                    f"{step}: {msg}",
+                )
+
+    return_code = process.wait()
+    if return_code != 0:
+        raise RuntimeError(f"Pipeline stopped at step: {step} (exit code {return_code})")
 
 
 def run_pipeline(
     mbox_path: str | Path,
     work_dir: str | Path,
     progress_cb: Callable[[float, str | None], None] | None = None,
+    force: bool = False,
 ) -> dict[str, str]:
     mbox = Path(mbox_path).resolve()
     work_dir = Path(work_dir).resolve()
@@ -103,148 +112,160 @@ def run_pipeline(
         "core_timeline_png": out_dir / "core_timeline.png",
     }
 
-    steps: list[tuple[str, list[str]]] = [
-        (
-            "extract_headers",
-            [
-                PY,
-                str(_step_script("extract_headers")),
-                "--mbox",
-                str(mbox),
-                "--out",
-                str(files["inbox_metadata"]),
+    steps: list[dict] = [
+        {
+            "name": "extract_headers",
+            "cmd": [
+                PY, str(_step_script("extract_headers")),
+                "--mbox", str(mbox),
+                "--out", str(files["inbox_metadata"]),
             ],
-        ),
-        (
-            "extract_relationships",
-            [
-                PY,
-                str(_step_script("extract_relationships")),
-                "--in",
-                str(files["inbox_metadata"]),
-                "--out",
-                str(files["relationships_raw"]),
+            "outputs": [files["inbox_metadata"]],
+        },
+        {
+            "name": "extract_relationships",
+            "cmd": [
+                PY, str(_step_script("extract_relationships")),
+                "--in", str(files["inbox_metadata"]),
+                "--out", str(files["relationships_raw"]),
             ],
-        ),
-        (
-            "filter_relationships",
-            [
-                PY,
-                str(_step_script("filter_relationships")),
-                "--in",
-                str(files["relationships_raw"]),
-                "--out",
-                str(files["relationships_filtered"]),
+            "outputs": [files["relationships_raw"]],
+        },
+        {
+            "name": "filter_relationships",
+            "cmd": [
+                PY, str(_step_script("filter_relationships")),
+                "--in", str(files["relationships_raw"]),
+                "--out", str(files["relationships_filtered"]),
             ],
-        ),
-        (
-            "clean_relationships",
-            [
-                PY,
-                str(_step_script("clean_relationships")),
-                "--in",
-                str(files["relationships_filtered"]),
-                "--out",
-                str(files["relationships_clean"]),
+            "outputs": [files["relationships_filtered"]],
+        },
+        {
+            "name": "clean_relationships",
+            "cmd": [
+                PY, str(_step_script("clean_relationships")),
+                "--in", str(files["relationships_filtered"]),
+                "--out", str(files["relationships_clean"]),
             ],
-        ),
-        (
-            "analyze_relationships_filtered",
-            [
-                PY,
-                str(_step_script("analyze_relationships")),
-                "--in",
-                str(files["relationships_filtered"]),
+            "outputs": [files["relationships_clean"]],
+        },
+        {
+            "name": "analyze_relationships_filtered",
+            "cmd": [
+                PY, str(_step_script("analyze_relationships")),
+                "--in", str(files["relationships_filtered"]),
             ],
-        ),
-        (
-            "reanalyze_clean_relationships",
-            [
-                PY,
-                str(_step_script("reanalyze_clean_relationships")),
-                "--in",
-                str(files["relationships_clean"]),
+            "outputs": [],
+        },
+        {
+            "name": "reanalyze_clean_relationships",
+            "cmd": [
+                PY, str(_step_script("reanalyze_clean_relationships")),
+                "--in", str(files["relationships_clean"]),
             ],
-        ),
-        (
-            "build_core_timeline",
-            [
-                PY,
-                str(_step_script("build_core_timeline")),
-                "--in",
-                str(files["relationships_clean"]),
-                "--out",
-                str(files["core_timeline"]),
+            "outputs": [],
+        },
+        {
+            "name": "build_core_timeline",
+            "cmd": [
+                PY, str(_step_script("build_core_timeline")),
+                "--in", str(files["relationships_clean"]),
+                "--out", str(files["core_timeline"]),
             ],
-        ),
-        (
-            "preview_core_timeline",
-            [
-                PY,
-                str(_step_script("preview_core_timeline")),
-                "--in",
-                str(files["core_timeline"]),
+            "outputs": [files["core_timeline"]],
+        },
+        {
+            "name": "preview_core_timeline",
+            "cmd": [
+                PY, str(_step_script("preview_core_timeline")),
+                "--in", str(files["core_timeline"]),
             ],
-        ),
-        (
-            "plot_core_timeline",
-            [
-                PY,
-                str(_step_script("plot_core_timeline")),
-                "--in",
-                str(files["core_timeline"]),
-                "--save",
-                str(files["core_timeline_png"]),
+            "outputs": [],
+        },
+        {
+            "name": "plot_core_timeline",
+            "cmd": [
+                PY, str(_step_script("plot_core_timeline")),
+                "--in", str(files["core_timeline"]),
+                "--save", str(files["core_timeline_png"]),
             ],
-        ),
+            "outputs": [files["core_timeline_png"]],
+        },
     ]
 
     total = len(steps)
 
+    update_metadata(work_dir, {
+        "status": "starting",
+        "mbox_path": str(mbox),
+        "mbox_name": mbox.name,
+        "mbox_size_bytes": mbox.stat().st_size,
+        "workspace": str(work_dir),
+        "out_dir": str(out_dir),
+    })
+
     if progress_cb:
         progress_cb(0.0, f"Using MBOX: {mbox.name}")
 
-    for i, (step_name, cmd) in enumerate(steps, start=1):
+    for i, step in enumerate(steps, start=1):
+        step_name = step["name"]
+        cmd = step["cmd"]
+        outputs = step["outputs"]
+
+        step_base = (i - 1) / total
+        step_span = 1 / total
+
+        all_outputs_exist = bool(outputs) and all(p.exists() for p in outputs)
+
+        if all_outputs_exist and not force:
+            update_metadata(work_dir, {
+                "status": "skipped",
+                "last_step": step_name,
+                "last_completed_step": step_name,
+                "skipped_step": step_name,
+            })
+            if progress_cb:
+                progress_cb(min(0.99, i / total), f"Skipping: {step_name} (already done)")
+            continue
+
+        update_metadata(work_dir, {
+            "status": "running",
+            "last_step": step_name,
+            "step_index": i,
+            "step_total": total,
+        })
+
         if progress_cb:
-            progress_cb((i - 1) / total, f"Running: {step_name}")
-        _run_subprocess(step_name, cmd, cwd=HERE)
+            progress_cb(step_base, f"Running: {step_name}")
+
+        _run_subprocess(
+            step=step_name,
+            cmd=cmd,
+            cwd=BASE_DIR,
+            progress_cb=progress_cb,
+            step_progress_base=step_base,
+            step_progress_span=step_span,
+        )
+
+        update_metadata(work_dir, {
+            "status": "running",
+            "last_completed_step": step_name,
+        })
+
+        if progress_cb:
+            progress_cb(min(0.99, i / total), f"Finished: {step_name}")
+
+    update_metadata(work_dir, {
+        "status": "complete",
+        "last_completed_step": steps[-1]["name"],
+    })
 
     if progress_cb:
         progress_cb(1.0, "Pipeline complete")
 
-    outputs = {
+    return {
         "mbox": str(mbox),
         "workspace": str(work_dir),
         "out_dir": str(out_dir),
         **{k: str(v) for k, v in files.items()},
     }
-
-    return outputs
-
-
-def main() -> None:
-    input_dir = HERE / "input"
-    workspaces_dir = HERE / "workspaces"
-
-    input_dir.mkdir(parents=True, exist_ok=True)
-    workspaces_dir.mkdir(parents=True, exist_ok=True)
-
-    mbox = pick_mbox(input_dir)
-    assert_mbox_ok(mbox)
-
-    run_name = slugify(mbox.stem)
-    workspace_dir = workspaces_dir / run_name
-
-    print(f"Using MBOX: {mbox}")
-    print(f"Workspace: {workspace_dir}")
-
-    outputs = run_pipeline(mbox_path=mbox, work_dir=workspace_dir)
-
-    print("\n✅ Gmail pipeline complete.")
-
-    for key, value in outputs.items():
-        print(f"{key}: {value}")
-
-
-if __name__ == "__main__":
-    main()
