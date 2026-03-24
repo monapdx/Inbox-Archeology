@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -149,6 +150,10 @@ def main() -> None:
     st.title("Inbox Archeology")
     st.caption("Local-first Gmail Takeout analysis. Nothing leaves your computer.")
 
+    # -------------------------
+    # EXISTING WORKSPACES
+    # -------------------------
+
     st.header("Open Existing Workspace")
 
     workspaces = list_workspaces(workspaces_dir)
@@ -174,22 +179,36 @@ def main() -> None:
         st.info("No completed workspaces found yet.")
 
     st.markdown("---")
+
+    # -------------------------
+    # INPUT SECTION
+    # -------------------------
+
     st.header("1) Add Gmail Takeout")
 
     st.info(
-        "For real Gmail exports, copy your `.mbox` file into the local `input/` folder. "
-        "Browser upload is limited to ~200MB and is intended only for testing."
+        "For real Gmail exports, click **Open input folder** and drag your `.mbox` file into it.\n\n"
+        "Browser upload is limited (~200MB) and only meant for testing."
     )
 
-    st.markdown("### Recommended: Copy file into this folder")
-    st.code(str(input_dir))
+    st.markdown("### Add your `.mbox` file")
+
+    col_a, col_b = st.columns([1, 2])
+
+    with col_a:
+        if st.button("Open input folder", use_container_width=True):
+            os.startfile(input_dir)
+
+    with col_b:
+        st.code(str(input_dir))
 
     st.markdown(
         """
 1. Download your Gmail Takeout export  
 2. Find **All Mail.mbox**  
-3. Copy it into the `input/` folder above  
-4. Click **Refresh list**
+3. Click **Open input folder**  
+4. Drag the `.mbox` file into that folder  
+5. Click **Refresh list**
 """
     )
 
@@ -222,9 +241,7 @@ def main() -> None:
     )
 
     if not mbox_files:
-        st.warning(
-            "No `.mbox` files found. Copy one into the input folder then refresh."
-        )
+        st.warning("No `.mbox` files found yet.")
         st.stop()
 
     st.subheader("Available inbox files")
@@ -247,6 +264,10 @@ def main() -> None:
 
     st.success(f"Selected: {mbox_path}")
 
+    # -------------------------
+    # WORKSPACE
+    # -------------------------
+
     st.header("2) Workspace")
 
     default_run = slugify(mbox_path.stem)
@@ -267,6 +288,7 @@ def main() -> None:
     if meta:
         status = meta.get("status", "unknown")
         last_step = meta.get("last_completed_step") or meta.get("last_step")
+
         if last_step:
             st.caption(f"Workspace status: {status} — {last_step}")
         else:
@@ -276,6 +298,10 @@ def main() -> None:
         st.info("This workspace already contains saved results.")
         if st.button("Open this workspace now", use_container_width=True):
             open_dashboard_for(workspace_output_dir(workspace_dir))
+
+    # -------------------------
+    # RUN
+    # -------------------------
 
     st.header("3) Run Analysis")
 
