@@ -2,6 +2,8 @@
 
 [![Relationship Graph](https://img.shields.io/badge/%F0%9F%93%89Relationship%20Graph-111111?style=for-the-badge)](#relationship-graph) [![Dashboard](https://img.shields.io/badge/%F0%9F%9A%80Dashboard-111111?style=for-the-badge)](#dashboard) [![Analytics](https://img.shields.io/badge/%E2%9C%85Analytics-111111?style=for-the-badge)](#analytics) 
 
+<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/ChatGPT%20Image%20Mar%2022%2C%202026%2C%2006_16_18%20AM.png" width="836">
+
 Explore your exported message data like a personal time machine.
 
 ---
