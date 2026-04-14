@@ -1,5 +1,7 @@
 # Inbox Archeology
 
+[![Relationship Graph](https://img.shields.io/badge/%F0%9F%93%89Relationship%20Graph-111111?style=for-the-badge)](#relationship-graph) [![Dashboard](https://img.shields.io/badge/%F0%9F%9A%80Dashboard-111111?style=for-the-badge)](#dashboard) [![Analytics](https://img.shields.io/badge/%E2%9C%85Analytics-111111?style=for-the-badge)](#analytics) 
+
 Explore your exported message data like a personal time machine.
 
 ---
