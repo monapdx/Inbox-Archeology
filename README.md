@@ -1,172 +1,167 @@
 # Inbox Archeology
 
-**Inbox Archeology** is a local-first tool that analyzes your **Gmail
-Takeout export** to reconstruct the social history of your inbox.
+Explore your exported message data like a personal time machine.
 
-It transforms a raw `.mbox` archive into an interactive dashboard
-showing:
+Inbox Archeology transforms your Google Takeout `.mbox` into a local, visual archive so you can explore relationship patterns over time.
 
--   who you communicated with most
--   how relationships evolved over time
--   reciprocity patterns (who wrote whom)
--   long-term communication timelines
--   core vs peripheral relationships
+---
 
-Everything runs **entirely on your computer**. Your email data never
-leaves your machine.
+## What it does
 
-------------------------------------------------------------------------
+- Parses Gmail Takeout mailbox exports
+- Builds relationship-level tables through a multi-step pipeline
+- Renders a Streamlit dashboard with:
+  - relationship graph
+  - timeline views
+  - reciprocity analysis
+  - lifecycle metrics
+  - CORE relationship density by year
 
-# Features
+Everything runs on your machine.
 
-## Relationship Graph
-
-Visualizes your inbox as an **ego network** centered on you.
-
--   node size = message volume\
--   color = relationship tier (core / recurring / peripheral)\
--   hover for details
-
-## Timeline Visualization
-
-A **Gantt-style timeline** of when each relationship was active.
-
-Shows: - first contact - last contact - total message volume -
-relationship duration
-
-## Reciprocity Analysis
-
-Scatterplot of **sent vs received messages** revealing:
-
--   balanced relationships
--   one-sided communication
--   broadcast-style contacts
-
-## Lifecycle Analysis
-
-Relationship duration vs message volume highlights:
-
--   long but quiet connections
--   intense short-term exchanges
--   durable high-volume relationships
-
-## CORE Relationship Density
-
-Tracks how many of your **core relationships** were active each year.
-
-------------------------------------------------------------------------
-
-# Architecture
-
-Gmail Takeout (.mbox) ↓ extract_headers ↓ extract_relationships ↓
-filter_relationships ↓ clean_relationships ↓ build_core_timeline ↓
-Streamlit Dashboard
-
-Each processing step is modular and lives in the **`steps/` directory**.
-
-------------------------------------------------------------------------
-
-# Installation
+---
 
 ## Requirements
 
--   Python **3.10+**
--   Gmail Takeout export (`.mbox`)
-
-------------------------------------------------------------------------
-
-## Quick Start (Windows)
-
-Run the launcher:
-
-launch_inbox_archeology.bat
-
-This will: 1. create a virtual environment 2. install dependencies 3.
-launch the Streamlit dashboard
-
-------------------------------------------------------------------------
-
-## Manual Installation
-
-python -m venv .venv
-
-Activate:
-
-.venv`\Scripts`{=tex}`\activate`{=tex}
+- Python 3.10+
+- A Gmail Takeout `.mbox` file (for real analysis)
 
 Install dependencies:
 
+```bash
+python -m venv .venv
+```
+
+Activate:
+
+- macOS / Linux: `source .venv/bin/activate`
+- Windows (cmd): `.venv\Scripts\activate.bat`
+- Windows (PowerShell): `.venv\Scripts\Activate.ps1`
+
+Then:
+
+```bash
 pip install -r requirements.txt
+```
 
-Run the app:
+---
 
+## Run
+
+```bash
 streamlit run app.py
+```
 
-------------------------------------------------------------------------
+The app creates/uses local folders in this repo:
 
-# Using Your Gmail Export
+- `input/` for source `.mbox` files
+- `workspaces/` for per-run outputs
 
-1.  Download your Gmail data via **Google Takeout**
-2.  Locate the file:
+---
 
-All Mail.mbox
+## Current app flow
 
-3.  Copy it into:
+### 1) Add Gmail Takeout
 
-input/
+Recommended path (for real exports):
 
-4.  Start the app
-5.  Select the `.mbox` file and run the pipeline
+1. Download your Gmail Takeout export
+2. Locate the mailbox file (often `All Mail.mbox`)
+3. Copy the `.mbox` into `input/`
+4. Click **Refresh list** in the app
 
-Large inbox exports (multiple GB) are supported.
+Optional path:
 
-------------------------------------------------------------------------
+- Upload a small test `.mbox` directly in the app
+- Intended for small files only (about 200 MB browser upload limit)
 
-# Privacy
+### 2) Choose workspace
 
-Inbox Archeology is designed for **personal local analysis**.
+- Pick the detected `.mbox`
+- Set a run name (used for `workspaces/<run-name>/`)
+- Reopen previous completed runs from **Open Existing Workspace**
 
--   No network calls
--   No cloud services
--   No telemetry
--   No external APIs
+### 3) Run analysis
 
-Your email archive **never leaves your machine**.
+- Click **Run Inbox Archeology**
+- Progress is shown live as pipeline steps complete
+- Open dashboard automatically (toggle in sidebar) or manually after run
 
-------------------------------------------------------------------------
+---
 
-# Configuration
+## Output location
 
-Optional `.env` file:
+For each run:
 
-SELF_EMAILS=your_email@gmail.com
-AUTOMATED_DOMAINS=facebookmail.com,google.com
-AUTOMATED_PREFIXES=no-reply@,notifications@
+- Workspace: `workspaces/<run-name>/`
+- Output files: `workspaces/<run-name>/output/`
 
-This allows you to filter automated emails and correctly identify your
-own addresses.
+Typical generated artifacts:
 
-------------------------------------------------------------------------
+- `inbox_metadata.csv`
+- `relationships_raw.csv`
+- `relationships_filtered.csv`
+- `relationships_clean.csv`
+- `core_timeline.csv`
+- `core_timeline.png`
 
-# Roadmap
+---
 
-Potential future improvements:
+## Environment variables (`.env`)
 
--   force-directed network graph
--   relationship clustering
--   attachment analysis
--   subject/topic modeling
--   email frequency heatmaps
--   multi-account support
+Create a `.env` file in the project root to customize relationship extraction.
 
-------------------------------------------------------------------------
+### Identify your own addresses
 
-# License
+```env
+SELF_EMAILS=you@gmail.com,alias@gmail.com,you@company.com
+```
 
-MIT License
+This is important for accurate sent/received attribution.
 
-------------------------------------------------------------------------
+### Ignore automated/bulk senders
 
-# Author
+```env
+AUTOMATED_DOMAINS=facebookmail.com,google.com,linkedin.com,substack.com
+AUTOMATED_PREFIXES=no-reply@,noreply@,notifications@,donotreply@
+```
 
-Created by **Ashly Lorenzana**
+- `AUTOMATED_DOMAINS`: filters addresses ending in `@domain`
+- `AUTOMATED_PREFIXES`: filters addresses starting with those prefixes
+
+After changing `.env`, rerun analysis for affected workspaces.
+
+---
+
+## Privacy
+
+Inbox Archeology is local-first:
+
+- no cloud processing in this app flow
+- no external API requirement for analysis
+- no mailbox upload to third-party services by default
+
+Your archive stays on your machine unless you move it.
+
+---
+
+## Project structure
+
+- `app.py` - Streamlit UI and run workflow
+- `pipeline.py` - orchestrates step scripts
+- `steps/` - modular processing steps
+- `dashboard.py` - dashboard rendering
+- `input/` - source mailbox files
+- `workspaces/` - saved run outputs
+
+---
+
+## Contributing
+
+See `CONTRIBUTING.md`.
+
+---
+
+## License
+
+MIT
