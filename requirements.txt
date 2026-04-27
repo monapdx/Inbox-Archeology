@@ -2,6 +2,7 @@ streamlit
 pandas
 numpy
 plotly
+kaleido
 matplotlib
 beautifulsoup4
 scikit-learn
