@@ -1,0 +1,26 @@
+{
+  "name": "inbox-archeology-electron",
+  "version": "1.0.0",
+  "description": "Inbox Archeology desktop shell",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.monapdx.inboxarcheology",
+    "productName": "Inbox Archeology",
+    "files": [
+      "main.js",
+      "preload.js"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

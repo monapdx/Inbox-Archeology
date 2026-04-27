@@ -1,26 +1,64 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 env/
+ENV/
+
+# Packaging / local builds
+build/
+dist/
+*.spec.bak
 
 # Streamlit
 .streamlit/
 
-# Data outputs
+# Data outputs (repo-relative runs)
 output/
 workspaces/
 input/
 
-# Gmail exports
+# Gmail exports and derived tables (privacy / size)
 *.mbox
 *.csv
 
-# OS
+# Secrets — use `.env.example` for non-secret defaults
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Node (Electron shell)
+electron/node_modules/
+electron/dist/
+
+# Editors / OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+.idea/
+*.swp
+*.swo
+*~
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/

@@ -1,10 +1,9 @@
-# Updated 'requirements.txt' with pinned versions for reproducibility and without unused packages
+# Pinned for reproducible installs on Python 3.10+ (including 3.13/3.14 where wheels exist).
+# Bump these intentionally when upgrading; run the app and a sample pipeline after changes.
 
-streamlit==1.16.0
-pandas==1.4.3
-numpy==1.22.3
-plotly==5.8.2
-matplotlib==3.5.1
-beautifulsoup4==4.11.1
-scikit-learn==1.0.2
-python-dotenv==0.20.0
+streamlit==1.56.0
+pandas==2.3.3
+numpy==2.4.2
+plotly==6.0.1
+Pillow==12.2.0
+python-dotenv==1.1.0

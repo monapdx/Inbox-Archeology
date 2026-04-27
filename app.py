@@ -35,6 +35,24 @@ def human_size(num_bytes: int) -> str:
     return f"{num_bytes} B"
 
 
+def sync_selected_mbox_from_query_params() -> None:
+    raw = st.query_params.get("mbox", "")
+
+    if isinstance(raw, list):
+        raw = raw[0] if raw else ""
+
+    if not raw:
+        return
+
+    p = Path(raw)
+
+    if p.exists():
+        resolved = str(p.resolve())
+        if st.session_state.mbox_path != resolved:
+            st.session_state.mbox_path = resolved
+            st.session_state.view = "main"
+
+
 def render_dashboard_view() -> None:
     import dashboard
 
@@ -59,36 +77,11 @@ def render_main_view() -> None:
     st.title("Inbox Archeology")
     st.caption("Analyze your Gmail Takeout. Nothing leaves your computer.")
 
-    st.header("Select your Gmail Takeout (.mbox)")
-
-    manual_path = st.text_input(
-        "Paste file path",
-        value=st.session_state.mbox_path or "",
-        placeholder=r"C:\Users\You\Downloads\All Mail.mbox",
-    )
-
-    if manual_path:
-        p = Path(manual_path)
-
-        if p.exists():
-            st.session_state.mbox_path = str(p)
-
-            try:
-                size = human_size(p.stat().st_size)
-            except Exception:
-                size = "unknown size"
-
-            st.success(f"{p.name} — {size}")
-            st.caption(str(p))
-        else:
-            st.session_state.mbox_path = None
-            st.error("File not found")
-
     if not st.session_state.mbox_path:
+        st.info("Choose MBOX File from the desktop app.")
+
         if st.session_state.last_out_dir:
             st.markdown("---")
-            st.subheader("Last Results")
-            st.caption(st.session_state.last_out_dir)
             if st.button("Open Dashboard", use_container_width=True):
                 st.session_state.dashboard_out_dir = st.session_state.last_out_dir
                 st.session_state.view = "dashboard"
@@ -96,6 +89,20 @@ def render_main_view() -> None:
         return
 
     mbox_path = Path(st.session_state.mbox_path)
+
+    if not mbox_path.exists():
+        st.error("The selected MBOX file no longer exists.")
+        st.session_state.mbox_path = None
+        return
+
+    try:
+        size = human_size(mbox_path.stat().st_size)
+    except Exception:
+        size = "unknown size"
+
+    st.subheader("Selected MBOX")
+    st.success(f"{mbox_path.name} — {size}")
+    st.caption(str(mbox_path))
 
     run_name = slugify(mbox_path.stem)
     workspace_dir = WORKSPACES_DIR / run_name
@@ -143,13 +150,9 @@ def render_main_view() -> None:
         st.session_state.dashboard_out_dir = out_dir
 
         st.success("Analysis complete")
-        st.rerun()
 
     if st.session_state.last_out_dir:
         st.markdown("---")
-        st.subheader("Results")
-        st.caption(st.session_state.last_out_dir)
-
         col1, col2 = st.columns(2)
 
         with col1:
@@ -159,9 +162,9 @@ def render_main_view() -> None:
                 st.rerun()
 
         with col2:
-            if st.button("Run Again", use_container_width=True):
-                st.session_state.last_out_dir = ""
-                st.rerun()
+            if st.button("Choose Another MBOX in Desktop App", use_container_width=True):
+                st.info("Use File → Choose MBOX File in the desktop app window.")
+
     else:
         st.info("Click Run to start analysis.")
 
@@ -180,6 +183,8 @@ def main() -> None:
 
     if "mbox_path" not in st.session_state:
         st.session_state.mbox_path = None
+
+    sync_selected_mbox_from_query_params()
 
     if st.session_state.view == "dashboard":
         if st.session_state.dashboard_out_dir:

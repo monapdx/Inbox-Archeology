@@ -6,10 +6,14 @@ import subprocess
 import sys
 from typing import Callable
 
-from config import BASE_DIR
-from workspace_utils import update_metadata
-
+HERE = Path(__file__).resolve().parent
 PY = sys.executable
+
+# Help Windows behave better with Unicode in console output
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 
 def slugify(name: str) -> str:
@@ -26,16 +30,16 @@ def assert_mbox_ok(mbox: Path) -> None:
     if size == 0:
         raise ValueError(
             f"Your MBOX file is empty (0 bytes): {mbox}\n"
-            "Copy your real Gmail Takeout .mbox file here."
+            "Choose your real Gmail Takeout .mbox file and rerun."
         )
 
     if size < 1024 * 1024:
-        print(f"Warning: MBOX is very small: {mbox} ({size} bytes)")
+        print(f"Warning: MBOX is very small: {mbox} ({size} bytes)", flush=True)
 
 
 def _step_script(step_name: str) -> Path:
-    direct = BASE_DIR / f"{step_name}.py"
-    nested = BASE_DIR / "steps" / f"{step_name}.py"
+    direct = HERE / f"{step_name}.py"
+    nested = HERE / "steps" / f"{step_name}.py"
 
     if direct.exists():
         return direct
@@ -43,8 +47,44 @@ def _step_script(step_name: str) -> Path:
         return nested
 
     raise FileNotFoundError(
-        f"Could not find script for step '{step_name}' in {BASE_DIR} or {BASE_DIR / 'steps'}"
+        f"Could not find script for step '{step_name}' in {HERE} or {HERE / 'steps'}"
     )
+
+
+def _emit_line_progress(
+    line: str,
+    step: str,
+    progress_cb: Callable[[float, str | None], None] | None,
+    step_progress_base: float | None,
+    step_progress_span: float | None,
+) -> None:
+    if not progress_cb or step_progress_base is None or step_progress_span is None:
+        return
+
+    if line.startswith("PROGRESS_PCT:"):
+        payload = line.split(":", 1)[1].strip()
+        pct_text, _, msg = payload.partition("|")
+
+        try:
+            pct = float(pct_text)
+        except ValueError:
+            pct = 0.0
+
+        pct = max(0.0, min(1.0, pct))
+        overall_pct = step_progress_base + (step_progress_span * pct)
+
+        progress_cb(
+            min(0.99, overall_pct),
+            f"{step}: {msg or f'{pct:.0%}'}",
+        )
+        return
+
+    if line.startswith("PROGRESS:"):
+        msg = line.split(":", 1)[1].strip()
+        progress_cb(
+            min(0.99, step_progress_base + (step_progress_span * 0.5)),
+            f"{step}: {msg}",
+        )
 
 
 def _run_subprocess(
@@ -55,8 +95,8 @@ def _run_subprocess(
     step_progress_base: float | None = None,
     step_progress_span: float | None = None,
 ) -> None:
-    print(f"\n→ {step}")
-    print("  " + " ".join(cmd))
+    print(f"\n[STEP] {step}", flush=True)
+    print("  CMD: " + " ".join(cmd), flush=True)
 
     process = subprocess.Popen(
         cmd,
@@ -64,6 +104,8 @@ def _run_subprocess(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
     )
 
@@ -71,21 +113,24 @@ def _run_subprocess(
 
     for raw_line in process.stdout:
         line = raw_line.rstrip()
-        print(line)
+        if not line:
+            continue
 
-        # Optional convention for step scripts:
-        # print("PROGRESS:12345")
-        if progress_cb and step_progress_base is not None and step_progress_span is not None:
-            if line.startswith("PROGRESS:"):
-                msg = line.split(":", 1)[1].strip()
-                progress_cb(
-                    min(0.99, step_progress_base + step_progress_span * 0.5),
-                    f"{step}: {msg}",
-                )
+        print(line, flush=True)
+        _emit_line_progress(
+            line=line,
+            step=step,
+            progress_cb=progress_cb,
+            step_progress_base=step_progress_base,
+            step_progress_span=step_progress_span,
+        )
 
     return_code = process.wait()
+
     if return_code != 0:
-        raise RuntimeError(f"Pipeline stopped at step: {step} (exit code {return_code})")
+        raise RuntimeError(
+            f"Pipeline stopped at step: {step} (exit code {return_code})"
+        )
 
 
 def run_pipeline(
@@ -116,93 +161,108 @@ def run_pipeline(
         {
             "name": "extract_headers",
             "cmd": [
-                PY, str(_step_script("extract_headers")),
-                "--mbox", str(mbox),
-                "--out", str(files["inbox_metadata"]),
+                PY,
+                str(_step_script("extract_headers")),
+                "--mbox",
+                str(mbox),
+                "--out",
+                str(files["inbox_metadata"]),
             ],
             "outputs": [files["inbox_metadata"]],
         },
         {
             "name": "extract_relationships",
             "cmd": [
-                PY, str(_step_script("extract_relationships")),
-                "--in", str(files["inbox_metadata"]),
-                "--out", str(files["relationships_raw"]),
+                PY,
+                str(_step_script("extract_relationships")),
+                "--in",
+                str(files["inbox_metadata"]),
+                "--out",
+                str(files["relationships_raw"]),
             ],
             "outputs": [files["relationships_raw"]],
         },
         {
             "name": "filter_relationships",
             "cmd": [
-                PY, str(_step_script("filter_relationships")),
-                "--in", str(files["relationships_raw"]),
-                "--out", str(files["relationships_filtered"]),
+                PY,
+                str(_step_script("filter_relationships")),
+                "--in",
+                str(files["relationships_raw"]),
+                "--out",
+                str(files["relationships_filtered"]),
             ],
             "outputs": [files["relationships_filtered"]],
         },
         {
             "name": "clean_relationships",
             "cmd": [
-                PY, str(_step_script("clean_relationships")),
-                "--in", str(files["relationships_filtered"]),
-                "--out", str(files["relationships_clean"]),
+                PY,
+                str(_step_script("clean_relationships")),
+                "--in",
+                str(files["relationships_filtered"]),
+                "--out",
+                str(files["relationships_clean"]),
             ],
             "outputs": [files["relationships_clean"]],
         },
         {
             "name": "analyze_relationships_filtered",
             "cmd": [
-                PY, str(_step_script("analyze_relationships")),
-                "--in", str(files["relationships_filtered"]),
+                PY,
+                str(_step_script("analyze_relationships")),
+                "--in",
+                str(files["relationships_filtered"]),
             ],
             "outputs": [],
         },
         {
             "name": "reanalyze_clean_relationships",
             "cmd": [
-                PY, str(_step_script("reanalyze_clean_relationships")),
-                "--in", str(files["relationships_clean"]),
+                PY,
+                str(_step_script("reanalyze_clean_relationships")),
+                "--in",
+                str(files["relationships_clean"]),
             ],
             "outputs": [],
         },
         {
             "name": "build_core_timeline",
             "cmd": [
-                PY, str(_step_script("build_core_timeline")),
-                "--in", str(files["relationships_clean"]),
-                "--out", str(files["core_timeline"]),
+                PY,
+                str(_step_script("build_core_timeline")),
+                "--in",
+                str(files["relationships_clean"]),
+                "--out",
+                str(files["core_timeline"]),
             ],
             "outputs": [files["core_timeline"]],
         },
         {
             "name": "preview_core_timeline",
             "cmd": [
-                PY, str(_step_script("preview_core_timeline")),
-                "--in", str(files["core_timeline"]),
+                PY,
+                str(_step_script("preview_core_timeline")),
+                "--in",
+                str(files["core_timeline"]),
             ],
             "outputs": [],
         },
         {
             "name": "plot_core_timeline",
             "cmd": [
-                PY, str(_step_script("plot_core_timeline")),
-                "--in", str(files["core_timeline"]),
-                "--save", str(files["core_timeline_png"]),
+                PY,
+                str(_step_script("plot_core_timeline")),
+                "--in",
+                str(files["core_timeline"]),
+                "--save",
+                str(files["core_timeline_png"]),
             ],
             "outputs": [files["core_timeline_png"]],
         },
     ]
 
     total = len(steps)
-
-    update_metadata(work_dir, {
-        "status": "starting",
-        "mbox_path": str(mbox),
-        "mbox_name": mbox.name,
-        "mbox_size_bytes": mbox.stat().st_size,
-        "workspace": str(work_dir),
-        "out_dir": str(out_dir),
-    })
 
     if progress_cb:
         progress_cb(0.0, f"Using MBOX: {mbox.name}")
@@ -218,22 +278,12 @@ def run_pipeline(
         all_outputs_exist = bool(outputs) and all(p.exists() for p in outputs)
 
         if all_outputs_exist and not force:
-            update_metadata(work_dir, {
-                "status": "skipped",
-                "last_step": step_name,
-                "last_completed_step": step_name,
-                "skipped_step": step_name,
-            })
             if progress_cb:
-                progress_cb(min(0.99, i / total), f"Skipping: {step_name} (already done)")
+                progress_cb(
+                    min(0.99, i / total),
+                    f"Skipping: {step_name} (already done)",
+                )
             continue
-
-        update_metadata(work_dir, {
-            "status": "running",
-            "last_step": step_name,
-            "step_index": i,
-            "step_total": total,
-        })
 
         if progress_cb:
             progress_cb(step_base, f"Running: {step_name}")
@@ -241,24 +291,14 @@ def run_pipeline(
         _run_subprocess(
             step=step_name,
             cmd=cmd,
-            cwd=BASE_DIR,
+            cwd=HERE,
             progress_cb=progress_cb,
             step_progress_base=step_base,
             step_progress_span=step_span,
         )
 
-        update_metadata(work_dir, {
-            "status": "running",
-            "last_completed_step": step_name,
-        })
-
         if progress_cb:
             progress_cb(min(0.99, i / total), f"Finished: {step_name}")
-
-    update_metadata(work_dir, {
-        "status": "complete",
-        "last_completed_step": steps[-1]["name"],
-    })
 
     if progress_cb:
         progress_cb(1.0, "Pipeline complete")
@@ -269,3 +309,13 @@ def run_pipeline(
         "out_dir": str(out_dir),
         **{k: str(v) for k, v in files.items()},
     }
+
+
+def main() -> None:
+    raise SystemExit(
+        "Run this through app.py or import run_pipeline(); direct auto-pick mode was removed."
+    )
+
+
+if __name__ == "__main__":
+    main()
