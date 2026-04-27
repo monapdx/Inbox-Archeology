@@ -11,8 +11,10 @@ APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
-from config import WORKSPACES_DIR  # noqa: E402
 from pipeline import run_pipeline  # noqa: E402
+
+
+STREAMLIT_UPLOAD_LIMIT_MB = 200
 
 
 def slugify(name: str) -> str:
@@ -35,22 +37,49 @@ def human_size(num_bytes: int) -> str:
     return f"{num_bytes} B"
 
 
-def sync_selected_mbox_from_query_params() -> None:
-    raw = st.query_params.get("mbox", "")
+def save_uploaded_mbox(uploaded_file, input_dir: Path) -> Path:
+    filename = Path(uploaded_file.name).name
+    target = input_dir / filename
 
-    if isinstance(raw, list):
-        raw = raw[0] if raw else ""
+    fingerprint = f"{filename}:{uploaded_file.size}"
 
-    if not raw:
-        return
+    if st.session_state.get("uploaded_mbox_fingerprint") == fingerprint and target.exists():
+        return target
 
-    p = Path(raw)
+    target.write_bytes(uploaded_file.getbuffer())
 
-    if p.exists():
-        resolved = str(p.resolve())
-        if st.session_state.mbox_path != resolved:
-            st.session_state.mbox_path = resolved
-            st.session_state.view = "main"
+    st.session_state.uploaded_mbox_fingerprint = fingerprint
+    st.session_state.uploaded_mbox_saved_path = str(target)
+
+    return target
+
+
+def workspace_output_dir(workspace_dir: Path) -> Path:
+    return workspace_dir / "output"
+
+
+def workspace_has_results(workspace_dir: Path) -> bool:
+    out_dir = workspace_output_dir(workspace_dir)
+    return (
+        out_dir.exists()
+        and (out_dir / "relationships_clean.csv").exists()
+        and (out_dir / "core_timeline.csv").exists()
+    )
+
+
+def list_workspaces(workspaces_dir: Path) -> list[Path]:
+    if not workspaces_dir.exists():
+        return []
+
+    items = [p for p in workspaces_dir.iterdir() if p.is_dir()]
+    items.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return items
+
+
+def open_dashboard_for(out_dir: Path) -> None:
+    st.session_state.dashboard_out_dir = str(out_dir.resolve())
+    st.session_state.show_dashboard = True
+    st.rerun()
 
 
 def render_dashboard_view() -> None:
@@ -66,58 +95,177 @@ def render_dashboard_view() -> None:
 
     with col2:
         if st.button("← Back", use_container_width=True):
-            st.session_state.view = "main"
+            st.session_state.show_dashboard = False
             st.rerun()
 
     st.markdown("---")
     dashboard.render_dashboard(out_dir)
 
 
-def render_main_view() -> None:
+def main() -> None:
+    st.set_page_config(page_title="Inbox Archeology", layout="wide")
+
+    project_root = APP_DIR
+    input_dir = project_root / "input"
+    workspaces_dir = project_root / "workspaces"
+
+    input_dir.mkdir(parents=True, exist_ok=True)
+    workspaces_dir.mkdir(parents=True, exist_ok=True)
+
+    if "show_dashboard" not in st.session_state:
+        st.session_state.show_dashboard = False
+
+    if "dashboard_out_dir" not in st.session_state:
+        st.session_state.dashboard_out_dir = ""
+
+    with st.sidebar:
+        st.header("Run Settings")
+
+        open_dashboard = st.toggle(
+            "Open dashboard automatically",
+            value=True
+        )
+
+        st.divider()
+
+        st.markdown("### Input folder")
+        st.code(str(input_dir))
+
+        st.markdown("### Workspaces")
+        st.code(str(workspaces_dir))
+
+    if st.session_state.show_dashboard and st.session_state.dashboard_out_dir:
+        render_dashboard_view()
+        return
+
     st.title("Inbox Archeology")
-    st.caption("Analyze your Gmail Takeout. Nothing leaves your computer.")
+    st.caption("Local-first Gmail Takeout analysis. Nothing leaves your computer.")
 
-    if not st.session_state.mbox_path:
-        st.info("Choose MBOX File from the desktop app.")
+    st.header("Open Existing Workspace")
 
-        if st.session_state.last_out_dir:
-            st.markdown("---")
-            if st.button("Open Dashboard", use_container_width=True):
-                st.session_state.dashboard_out_dir = st.session_state.last_out_dir
-                st.session_state.view = "dashboard"
-                st.rerun()
-        return
+    workspaces = list_workspaces(workspaces_dir)
+    completed_workspaces = [w for w in workspaces if workspace_has_results(w)]
 
-    mbox_path = Path(st.session_state.mbox_path)
+    if completed_workspaces:
+        selected_workspace = st.selectbox(
+            "Previously completed runs",
+            options=completed_workspaces,
+            format_func=lambda p: p.name,
+            key="existing_workspace_select",
+        )
 
-    if not mbox_path.exists():
-        st.error("The selected MBOX file no longer exists.")
-        st.session_state.mbox_path = None
-        return
+        col_open1, col_open2 = st.columns([1, 2])
 
-    try:
-        size = human_size(mbox_path.stat().st_size)
-    except Exception:
-        size = "unknown size"
+        with col_open1:
+            if st.button("Open selected workspace", use_container_width=True):
+                open_dashboard_for(workspace_output_dir(selected_workspace))
 
-    st.subheader("Selected MBOX")
-    st.success(f"{mbox_path.name} — {size}")
-    st.caption(str(mbox_path))
+        with col_open2:
+            st.caption(f"Saved results: {workspace_output_dir(selected_workspace)}")
+    else:
+        st.info("No completed workspaces found yet.")
 
-    run_name = slugify(mbox_path.stem)
-    workspace_dir = WORKSPACES_DIR / run_name
+    st.markdown("---")
+    st.header("1) Add Gmail Takeout")
+
+    st.info(
+        "For real Gmail exports, copy your `.mbox` file into the local `input/` folder. "
+        "Browser upload is limited to ~200MB and is intended only for testing."
+    )
+
+    st.markdown("### Recommended: Copy file into this folder")
+    st.code(str(input_dir))
+
+    st.markdown(
+        """
+1. Download your Gmail Takeout export  
+2. Find **All Mail.mbox**  
+3. Copy it into the `input/` folder above  
+4. Click **Refresh list**
+"""
+    )
+
+    with st.expander("Optional: Upload small test file"):
+        st.warning(f"Streamlit upload limit ≈ {STREAMLIT_UPLOAD_LIMIT_MB} MB")
+
+        uploaded = st.file_uploader(
+            "Upload a small .mbox",
+            type=["mbox"]
+        )
+
+        if uploaded is not None:
+            try:
+                saved = save_uploaded_mbox(uploaded, input_dir)
+                st.success(f"Saved to {saved}")
+            except Exception as e:
+                st.error("Upload failed")
+                st.exception(e)
+
+    col1, col2 = st.columns([1, 4])
+
+    with col1:
+        if st.button("Refresh list", use_container_width=True):
+            st.rerun()
+
+    mbox_files = sorted(
+        input_dir.glob("*.mbox"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True
+    )
+
+    if not mbox_files:
+        st.warning(
+            "No `.mbox` files found. Copy one into the input folder then refresh."
+        )
+        st.stop()
+
+    st.subheader("Available inbox files")
+
+    for p in mbox_files:
+        try:
+            size = human_size(p.stat().st_size)
+        except Exception:
+            size = "unknown size"
+
+        st.write(f"- `{p.name}` — {size}")
+
+    selected_mbox = st.selectbox(
+        "Select inbox to analyze",
+        options=mbox_files,
+        format_func=lambda p: p.name
+    )
+
+    mbox_path = selected_mbox.resolve()
+
+    st.success(f"Selected: {mbox_path}")
+
+    st.header("2) Workspace")
+
+    default_run = slugify(mbox_path.stem)
+
+    run_name = st.text_input(
+        "Run name",
+        value=default_run
+    )
+
+    run_name = slugify(run_name)
+
+    workspace_dir = workspaces_dir / run_name
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
     st.caption(f"Workspace: {workspace_dir}")
 
-    st.header("Run Analysis")
+    if workspace_has_results(workspace_dir):
+        st.info("This workspace already contains saved results.")
+        if st.button("Open this workspace now", use_container_width=True):
+            open_dashboard_for(workspace_output_dir(workspace_dir))
 
-    force_rerun = st.checkbox("Re-run completed steps", value=False)
+    st.header("3) Run Analysis")
 
     run_clicked = st.button(
         "Run Inbox Archeology",
         type="primary",
-        use_container_width=True,
+        use_container_width=True
     )
 
     progress_bar = st.progress(0)
@@ -134,65 +282,33 @@ def render_main_view() -> None:
                 outputs = run_pipeline(
                     mbox_path=mbox_path,
                     work_dir=workspace_dir,
-                    progress_cb=progress_cb,
-                    force=force_rerun,
+                    progress_cb=progress_cb
                 )
             except Exception as e:
                 st.error("Pipeline failed")
                 st.exception(e)
-                return
+                st.stop()
 
         progress_bar.progress(100)
         status.success("Pipeline complete")
 
-        out_dir = str(Path(outputs["out_dir"]).resolve())
-        st.session_state.last_out_dir = out_dir
-        st.session_state.dashboard_out_dir = out_dir
+        out_dir = Path(outputs["out_dir"])
 
-        st.success("Analysis complete")
+        st.header("Results")
+        st.markdown(f"Outputs saved to `{out_dir}`")
 
-    if st.session_state.last_out_dir:
-        st.markdown("---")
-        col1, col2 = st.columns(2)
+        st.subheader("Generated files")
+        for k, v in outputs.items():
+            st.write(f"{k} → {v}")
 
-        with col1:
-            if st.button("Open Dashboard", use_container_width=True):
-                st.session_state.dashboard_out_dir = st.session_state.last_out_dir
-                st.session_state.view = "dashboard"
-                st.rerun()
+        if open_dashboard:
+            open_dashboard_for(out_dir)
 
-        with col2:
-            if st.button("Choose Another MBOX in Desktop App", use_container_width=True):
-                st.info("Use File → Choose MBOX File in the desktop app window.")
+        if st.button("Open dashboard", use_container_width=True):
+            open_dashboard_for(out_dir)
 
     else:
-        st.info("Click Run to start analysis.")
-
-
-def main() -> None:
-    st.set_page_config(page_title="Inbox Archeology", layout="wide")
-
-    if "view" not in st.session_state:
-        st.session_state.view = "main"
-
-    if "dashboard_out_dir" not in st.session_state:
-        st.session_state.dashboard_out_dir = ""
-
-    if "last_out_dir" not in st.session_state:
-        st.session_state.last_out_dir = ""
-
-    if "mbox_path" not in st.session_state:
-        st.session_state.mbox_path = None
-
-    sync_selected_mbox_from_query_params()
-
-    if st.session_state.view == "dashboard":
-        if st.session_state.dashboard_out_dir:
-            render_dashboard_view()
-            return
-        st.session_state.view = "main"
-
-    render_main_view()
+        st.info("Click **Run Inbox Archeology** to start analysis.")
 
 
 if __name__ == "__main__":

@@ -1,167 +1,172 @@
 # Inbox Archeology
 
-Explore your exported message data like a personal time machine.
+**Inbox Archeology** is a local-first tool that analyzes your **Gmail
+Takeout export** to reconstruct the social history of your inbox.
 
----
+It transforms a raw `.mbox` archive into an interactive dashboard
+showing:
 
-## Preview
+-   who you communicated with most
+-   how relationships evolved over time
+-   reciprocity patterns (who wrote whom)
+-   long-term communication timelines
+-   core vs peripheral relationships
 
-### Dashboard
-![Dashboard](./dashboard.png)
+Everything runs **entirely on your computer**. Your email data never
+leaves your machine.
 
-### Relationship Graph
-![Relationship Graph](./relationship_graph.png)
+------------------------------------------------------------------------
 
-### Analytics
-![Analytics](./analytics.png)
+# Features
 
----
+## Relationship Graph
 
-## What this is
+Visualizes your inbox as an **ego network** centered on you.
 
-Inbox Archeology transforms your Google Takeout data into a searchable, visual archive.
+-   node size = message volume\
+-   color = relationship tier (core / recurring / peripheral)\
+-   hover for details
 
-- Fully local
-- Privacy-first
-- Designed for exploration, not just storage
+## Timeline Visualization
 
----
+A **Gantt-style timeline** of when each relationship was active.
 
-## Quick Start
+Shows: - first contact - last contact - total message volume -
+relationship duration
 
-### What you need
+## Reciprocity Analysis
 
-- **Python 3.10+** (3.11+ recommended on Windows)
-- **pip** and a virtual environment (see below)
-- A **Gmail Google Takeout** export as an `.mbox` file (often named like `All Mail.mbox` or `All mail Including Spam and Trash.mbox`)
+Scatterplot of **sent vs received messages** revealing:
 
-**Optional — desktop shell:** [Node.js](https://nodejs.org/) (LTS is fine) if you want to run the Electron wrapper in `electron/`, which starts Streamlit and lets you pick the `.mbox` from a file dialog.
+-   balanced relationships
+-   one-sided communication
+-   broadcast-style contacts
 
-### 1. Download the project
+## Lifecycle Analysis
 
-```bash
-git clone https://github.com/monapdx/Inbox-Archeology.git
-cd Inbox-Archeology
-```
+Relationship duration vs message volume highlights:
 
-### 2. Install Python dependencies
+-   long but quiet connections
+-   intense short-term exchanges
+-   durable high-volume relationships
 
-```bash
+## CORE Relationship Density
+
+Tracks how many of your **core relationships** were active each year.
+
+------------------------------------------------------------------------
+
+# Architecture
+
+Gmail Takeout (.mbox) ↓ extract_headers ↓ extract_relationships ↓
+filter_relationships ↓ clean_relationships ↓ build_core_timeline ↓
+Streamlit Dashboard
+
+Each processing step is modular and lives in the **`steps/` directory**.
+
+------------------------------------------------------------------------
+
+# Installation
+
+## Requirements
+
+-   Python **3.10+**
+-   Gmail Takeout export (`.mbox`)
+
+------------------------------------------------------------------------
+
+## Quick Start (Windows)
+
+Run the launcher:
+
+launch_inbox_archeology.bat
+
+This will: 1. create a virtual environment 2. install dependencies 3.
+launch the Streamlit dashboard
+
+------------------------------------------------------------------------
+
+## Manual Installation
+
 python -m venv .venv
-```
 
-Activate the venv:
+Activate:
 
-- **macOS / Linux:** `source .venv/bin/activate`
-- **Windows (cmd):** `.venv\Scripts\activate.bat`
-- **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
+.venv`\Scripts`{=tex}`\activate`{=tex}
 
-Then:
+Install dependencies:
 
-```bash
 pip install -r requirements.txt
-```
 
-On Windows you can alternatively double-click `launch_inbox_archeology.bat` from the repo folder; it creates the venv, installs requirements, and starts Streamlit (you still need to point the app at your `.mbox`; see **Streamlit only** below).
+Run the app:
 
-### 3. Run the app (choose one)
-
-#### A. Desktop app (recommended)
-
-From the repo root:
-
-```bash
-cd electron
-npm install
-npm start
-```
-
-The window loads the local Streamlit UI. Use **File → Choose MBOX File** (or **Ctrl+O** / **Cmd+O**), select your Takeout `.mbox`, then in the browser view click **Run Inbox Archeology**. When the run finishes, use **Open Dashboard** to view charts and graphs.
-
-#### B. Streamlit only
-
-```bash
 streamlit run app.py
-```
 
-The UI does **not** include a built-in file picker. The app expects the path to your `.mbox` in the **`mbox` query parameter** (the Electron app sets this for you after you choose a file).
+------------------------------------------------------------------------
 
-1. Start Streamlit as above.
-2. Open `http://127.0.0.1:8501/?mbox=` followed by the **URL-encoded full absolute path** to your `.mbox` (your browser’s address bar or “Open URL” can help after you paste the path and let the browser encode it).
-   - Use the **full absolute path** to the file.
-   - Encode spaces and special characters (e.g. spaces as `%20`). On Windows, forward slashes in the path (e.g. `C:/Users/You/Takeout/Mail/All Mail.mbox`) are usually easier than escaping backslashes.
+# Using Your Gmail Export
 
-If no `mbox` parameter is set, the home screen prompts you to choose a file from the desktop app, or you can add `?mbox=...` and refresh.
+1.  Download your Gmail data via **Google Takeout**
+2.  Locate the file:
 
-### 4. First-time analysis settings
+All Mail.mbox
 
-Before your first run (or when charts look wrong), add a **`.env`** file in the project root and set at least **`SELF_EMAILS`**. See [Environment variables (.env)](#environment-variables-env) for how to list your own addresses and extra senders or domains to treat as automated noise.
+3.  Copy it into:
 
-### Where outputs go
+input/
 
-Workspaces are stored under the **app data directory** from `config.py`, not inside the git repo by default (that folder also holds `input` and `logs` directories for the app):
+4.  Start the app
+5.  Select the `.mbox` file and run the pipeline
 
-- **Windows:** `%LOCALAPPDATA%\InboxArcheology\workspaces\<run-name>\output\`
-- Other platforms use the same layout relative to the resolved local app data path in `config.py`.
+Large inbox exports (multiple GB) are supported.
 
-`<run-name>` is derived from your `.mbox` filename (see `slugify` in `app.py`). CSVs and images from the pipeline are written under that folder’s `output/` directory.
+------------------------------------------------------------------------
 
-### Expected result
+# Privacy
 
-After the pipeline finishes, open **Open Dashboard** in the UI to explore the archive. Large mailboxes can take a long time on the first run; the progress bar updates when individual steps report progress.
+Inbox Archeology is designed for **personal local analysis**.
 
----
+-   No network calls
+-   No cloud services
+-   No telemetry
+-   No external APIs
 
-## Environment variables (.env)
+Your email archive **never leaves your machine**.
 
-The relationship pipeline (`steps/extract_relationships.py`) loads environment variables from a **`.env`** file in the **repository root** (next to `app.py`), using [python-dotenv](https://github.com/theskumar/python-dotenv). Use a plain text file named exactly `.env` (leading dot; on Windows, save as `.env` in your editor so it is not saved as `.env.txt` by mistake).
+------------------------------------------------------------------------
 
-### Your own addresses — `SELF_EMAILS`
+# Configuration
 
-Set **`SELF_EMAILS`** to every email address that represents **you** in this export (Gmail aliases, workspace addresses, etc.). Use a **comma-separated** list; matching is **case-insensitive**.
+Optional `.env` file:
 
-```env
-SELF_EMAILS=you@gmail.com,alias@gmail.com,you@yourcompany.com
-```
+SELF_EMAILS=your_email@gmail.com
+AUTOMATED_DOMAINS=facebookmail.com,google.com
+AUTOMATED_PREFIXES=no-reply@,notifications@
 
-If `SELF_EMAILS` is missing or empty, the step falls back to generic placeholder defaults that will **not** match most people’s mail—set this variable for correct “you vs. everyone else” stats and graphs.
+This allows you to filter automated emails and correctly identify your
+own addresses.
 
-### Ignoring automated and bulk senders
+------------------------------------------------------------------------
 
-Senders that look like bots, newsletters, or system mail can drown out real people. You can tune two optional lists (comma-separated, compared in lowercase). If you omit them, built-in defaults apply; see `steps/extract_relationships.py` for the default lists.
+# Roadmap
 
-**`AUTOMATED_DOMAINS`** — Domains to treat as automated. List only the domain part (no `@`). Any sender address that ends with `@` plus that domain is filtered as automated.
+Potential future improvements:
 
-```env
-AUTOMATED_DOMAINS=facebookmail.com,linkedin.com,github.com,substack.com
-```
+-   force-directed network graph
+-   relationship clustering
+-   attachment analysis
+-   subject/topic modeling
+-   email frequency heatmaps
+-   multi-account support
 
-**`AUTOMATED_PREFIXES`** — Local-part prefixes for addresses to treat as automated. If an address **starts with** one of these strings (after lowercasing), it is filtered. Handy for common no-reply patterns.
+------------------------------------------------------------------------
 
-```env
-AUTOMATED_PREFIXES=no-reply@,noreply@,donotreply@,mailer-daemon@
-```
+# License
 
-Together, these rules reduce noise from mass senders; they do not replace `SELF_EMAILS`, which still tells the pipeline which addresses are yours.
+MIT License
 
-### After you change `.env`
+------------------------------------------------------------------------
 
-Turn on **Re-run completed steps** in the app before running again, or delete the generated CSVs under your workspace `output/` folder, so **`extract_relationships`** and later steps re-read your updated variables.
+# Author
 
----
-
-## Get Involved
-
-👉 Check out the Issues tab and CONTRIBUTING.md to get started
-
----
-
-## Philosophy
-
-This project is part of a broader movement toward:
-
-- Data portability  
-- Digital sovereignty  
-- Personal archives  
-
-Your data should belong to you.
+Created by **Ashly Lorenzana**
