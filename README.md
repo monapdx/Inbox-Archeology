@@ -27,6 +27,63 @@ Inbox Archeology transforms your Google Takeout data into a searchable, visual a
 
 ---
 
+<table border="1" cellpadding="8" cellspacing="0">
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>File</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>extract_headers.py</td>
+      <td>Parses a Gmail .mbox file and extracts basic email metadata (date, sender, recipient, subject, etc.) into a CSV file.</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>extract_relationships.py</td>
+      <td>Processes the metadata CSV to build a dataset of human relationships, counting messages sent/received and tracking first/last contact.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>filter_relationships.py</td>
+      <td>Filters out weak or insignificant relationships based on message count or activity duration thresholds.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>clean_relationships.py</td>
+      <td>Cleans and merges duplicate or variant email addresses, removes system accounts, and produces a normalized relationships dataset.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>reanalyze_clean_relationships.py</td>
+      <td>Recomputes relationship metrics (tiers, reciprocity, rankings) using the cleaned dataset for more accurate insights.</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>build_core_timeline.py</td>
+      <td>Extracts only high-volume (“CORE”) relationships and builds a timeline dataset showing when each relationship started and ended.</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>plot_core_timeline.py</td>
+      <td>Generates a visual timeline (chart) of core relationships over time, optionally saving it as an image.</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>preview_core_timeline.py</td>
+      <td>Analyzes overlap between core relationships by year, showing how many were active at the same time.</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>analyze_relationships.py</td>
+      <td>Provides final summary statistics and rankings for filtered relationships, including tiers and reciprocity analysis.</td>
+    </tr>
+  </tbody>
+</table>
+
 ## Quick Start
 
 ### What you need
