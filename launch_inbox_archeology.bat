@@ -9,11 +9,33 @@ echo   Inbox Archeology - Windows Launcher
 echo ==========================================
 echo.
 
-REM Check Python
-where python >nul 2>nul
-if errorlevel 1 (
+REM Validate expected project files
+if not exist "app.py" (
+    echo ERROR: app.py not found in this folder.
+    echo Run this script from the Inbox-Archeology project root.
+    pause
+    exit /b 1
+)
+
+if not exist "requirements.txt" (
+    echo ERROR: requirements.txt not found.
+    pause
+    exit /b 1
+)
+
+REM Find Python launcher
+set "PY_EXE="
+where py >nul 2>nul
+if not errorlevel 1 set "PY_EXE=py -3"
+
+if not defined PY_EXE (
+    where python >nul 2>nul
+    if not errorlevel 1 set "PY_EXE=python"
+)
+
+if not defined PY_EXE (
     echo ERROR: Python is not installed or not on PATH.
-    echo Install Python 3.11+ and make sure "Add Python to PATH" is enabled.
+    echo Install Python 3.10+ and make sure PATH is configured.
     pause
     exit /b 1
 )
@@ -21,7 +43,7 @@ if errorlevel 1 (
 REM Create venv if missing
 if not exist ".venv\Scripts\python.exe" (
     echo Creating virtual environment...
-    python -m venv .venv
+    %PY_EXE% -m venv .venv
     if errorlevel 1 (
         echo ERROR: Failed to create virtual environment.
         pause
@@ -37,32 +59,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+set "VENV_PY=.venv\Scripts\python.exe"
+
 echo Upgrading pip...
-python -m pip install --upgrade pip
+%VENV_PY% -m pip install --upgrade pip
 if errorlevel 1 (
     echo ERROR: Failed to upgrade pip.
     pause
     exit /b 1
 )
 
-REM Install requirements if file exists
-if exist "requirements.txt" (
-    echo Installing requirements from requirements.txt...
-    pip install -r requirements.txt
-    if errorlevel 1 (
-        echo ERROR: Failed to install requirements.txt.
-        pause
-        exit /b 1
-    )
-) else (
-    echo WARNING: requirements.txt not found.
-)
-
-REM Ensure python-dotenv is present
-echo Ensuring python-dotenv is installed...
-pip install python-dotenv
+echo Installing requirements from requirements.txt...
+%VENV_PY% -m pip install -r requirements.txt
 if errorlevel 1 (
-    echo ERROR: Failed to install python-dotenv.
+    echo ERROR: Failed to install requirements.txt.
     pause
     exit /b 1
 )
@@ -70,19 +80,19 @@ if errorlevel 1 (
 REM Make sure expected folders exist
 if not exist "input" mkdir input
 if not exist "workspaces" mkdir workspaces
-if not exist "output" mkdir output
-if not exist "steps" (
-    echo WARNING: steps folder not found.
-)
 
 echo.
 echo Launching Inbox Archeology...
 echo.
-echo When Streamlit opens, use:
-echo   http://localhost:8501
+echo App URL:
+echo   http://127.0.0.1:8501
+echo.
+echo For real Gmail exports:
+echo   1. Copy your .mbox file into the input\ folder
+echo   2. Click "Refresh list" in the app
 echo.
 
-streamlit run app.py
+%VENV_PY% -m streamlit run app.py
 
 echo.
 echo Streamlit has stopped.
