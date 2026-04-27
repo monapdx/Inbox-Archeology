@@ -4,6 +4,7 @@ Explore your exported message data like a personal time machine.
 
 Inbox Archeology transforms your Google Takeout `.mbox` into a local, visual archive so you can explore relationship patterns over time.
 
+[Instructions](https://docs.google.com/presentation/d/e/2PACX-1vQ1uJM6CWHz3tbCtIawYcAlLrlhwAHck_5H3zOLCrobvqZ7hjlMXJgCmb6p64GP6ZjhVRW89jKNitnD/pub?start=true&loop=true&delayms=10000)
 ---
 
 ## What it does
