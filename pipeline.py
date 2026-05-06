@@ -149,6 +149,7 @@ def run_pipeline(
         "relationships_clean": out_dir / "relationships_clean.csv",
         "core_timeline": out_dir / "core_timeline.csv",
         "core_timeline_png": out_dir / "core_timeline.png",
+        "insights": out_dir / "insights.json",
     }
 
     steps: list[tuple[str, list[str]]] = [
@@ -225,6 +226,19 @@ def run_pipeline(
                 str(files["relationships_clean"]),
                 "--out",
                 str(files["core_timeline"]),
+            ],
+        ),
+        (
+            "generate_insights",
+            [
+                PY,
+                str(_step_script("generate_insights")),
+                "--relationships",
+                str(files["relationships_clean"]),
+                "--timeline",
+                str(files["core_timeline"]),
+                "--out",
+                str(files["insights"]),
             ],
         ),
         (

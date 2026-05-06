@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 from pathlib import Path
@@ -33,6 +34,60 @@ def normalize_email_label(email: str, hide: bool) -> str:
         _, domain = email.split("@", 1)
         return "●●●@" + domain
     return "●●●"
+
+
+def render_key_insights(insights_path: Path, hide_labels: bool) -> None:
+    if not insights_path.is_file():
+        return
+    try:
+        raw = insights_path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        st.warning("Could not parse insights.json — skipping Key Insights.")
+        return
+
+    items = data.get("insights")
+    if not isinstance(items, list) or len(items) == 0:
+        return
+
+    per_category: dict[str, int] = {}
+    caps = {"core": 2, "reciprocity": 6, "lifecycle": 5, "volume": 2, "temporal": 2, "outliers": 4}
+
+    st.subheader("Key Insights")
+    st.caption("Deterministic summaries generated from your workspace CSV outputs.")
+
+    for ins in items:
+        if not isinstance(ins, dict):
+            continue
+        cat = str(ins.get("category", "general"))
+        if per_category.get(cat, 0) >= caps.get(cat, 20):
+            continue
+        per_category[cat] = per_category.get(cat, 0) + 1
+
+        importance = str(ins.get("importance", "medium")).lower()
+        title = str(ins.get("title", "Insight"))
+
+        if importance == "high":
+            st.markdown(f"##### 🔴 {title}")
+        elif importance == "low":
+            st.markdown(f"##### ○ {title}")
+        else:
+            st.markdown(f"##### ◆ {title}")
+
+        email_val = ins.get("email")
+        if email_val:
+            st.caption(normalize_email_label(str(email_val), hide_labels))
+
+        interp = ins.get("interpretation")
+        if interp:
+            st.write(str(interp))
+
+        evidence = ins.get("evidence", {})
+        if isinstance(evidence, dict) and evidence:
+            with st.expander("Details"):
+                st.json(evidence)
+
+        st.markdown("")  # spacing between insight cards
 
 
 def safe_read_csv(path: Path) -> pd.DataFrame:
@@ -190,6 +245,7 @@ def render_dashboard(out_dir: str | os.PathLike[str] | None = None) -> None:
     core_tl_path = output_dir / "core_timeline.csv"
     core_timeline_png = output_dir / "core_timeline.png"
     core_timeline_png_note = output_dir / "core_timeline_png_export_failed.txt"
+    insights_path = output_dir / "insights.json"
 
     st.caption(f"Reading dashboard data from: {output_dir}")
 
@@ -257,6 +313,8 @@ def render_dashboard(out_dir: str | os.PathLike[str] | None = None) -> None:
         & (f["last_contact"] >= pd.to_datetime(start_date, utc=True))
     ]
     f["label"] = f["email"].apply(lambda e: normalize_email_label(e, hide_labels))
+
+    render_key_insights(insights_path, hide_labels)
 
     st.subheader("Exploratory Dashboard")
 
