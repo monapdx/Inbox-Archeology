@@ -11,6 +11,10 @@ import csv
 from collections import Counter
 from pathlib import Path
 
+import _repo_root  # noqa: F401
+
+from ia_constants import CORE_MESSAGE_THRESHOLD, RECURRING_MESSAGE_THRESHOLD
+
 
 def safe_int(x):
     try:
@@ -33,9 +37,9 @@ def analyze_clean(in_path: str, top_n: int = 20):
             else:
                 reciprocity = sent / recv
 
-            if total >= 100:
+            if total >= CORE_MESSAGE_THRESHOLD:
                 tier = "CORE"
-            elif total >= 25:
+            elif total >= RECURRING_MESSAGE_THRESHOLD:
                 tier = "RECURRING"
             else:
                 tier = "PERIPHERAL"

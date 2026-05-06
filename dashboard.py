@@ -10,13 +10,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-
-def tier_from_total(total: int) -> str:
-    if total >= 100:
-        return "CORE"
-    if total >= 25:
-        return "RECURRING"
-    return "PERIPHERAL"
+from ia_constants import tier_from_total
 
 
 def recip_class(sent: int, recv: int) -> str:
@@ -195,6 +189,7 @@ def render_dashboard(out_dir: str | os.PathLike[str] | None = None) -> None:
     rel_clean = output_dir / "relationships_clean.csv"
     core_tl_path = output_dir / "core_timeline.csv"
     core_timeline_png = output_dir / "core_timeline.png"
+    core_timeline_png_note = output_dir / "core_timeline_png_export_failed.txt"
 
     st.caption(f"Reading dashboard data from: {output_dir}")
 
@@ -274,6 +269,9 @@ def render_dashboard(out_dir: str | os.PathLike[str] | None = None) -> None:
     if core_timeline_png.exists():
         with st.expander("Saved CORE timeline PNG"):
             st.image(str(core_timeline_png), use_container_width=True)
+    elif core_timeline_png_note.exists():
+        with st.expander("CORE timeline PNG (not generated)"):
+            st.info(core_timeline_png_note.read_text(encoding="utf-8"))
 
     st.divider()
 

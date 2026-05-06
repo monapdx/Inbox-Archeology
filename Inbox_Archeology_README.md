@@ -4,6 +4,8 @@ Explore your exported message data like a personal time machine.
 
 Inbox Archeology transforms your Google Takeout data into a searchable, visual archive — helping you rediscover conversations, patterns, and moments you forgot existed.
 
+For installation, `.mbox` setup, environment variables, and running the app, see **`README.md`** in this repository.
+
 ---
 
 ## Why this exists

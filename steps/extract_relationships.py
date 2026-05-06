@@ -30,14 +30,6 @@ def get_env_list(name: str, default: list[str]) -> list[str]:
 
 # ---- CONFIG (defaults can be overridden via .env or CLI) ----
 
-DEFAULT_SELF_ADDRESSES = get_env_list(
-    "SELF_EMAILS",
-    [
-        "thegirlnextfloor@gmail.com",
-        "ashly@ashlylorenzana.com",
-    ],
-)
-
 DEFAULT_AUTOMATED_DOMAINS = get_env_list(
     "AUTOMATED_DOMAINS",
     [
@@ -116,7 +108,19 @@ def extract_relationships(
     automated_domains=None,
     automated_prefixes=None,
 ):
-    self_addresses = {norm_email(x) for x in (self_addresses or DEFAULT_SELF_ADDRESSES)}
+    if self_addresses is None:
+        raw_self = get_env_list("SELF_EMAILS", [])
+    else:
+        raw_self = list(self_addresses)
+
+    self_addresses_set = {norm_email(x) for x in raw_self if norm_email(x)}
+    if not self_addresses_set:
+        raise ValueError(
+            "SELF_EMAILS is not configured. Add your address(es) to a root `.env` file "
+            "(see `.env.example`) as SELF_EMAILS=you@gmail.com,... "
+            "or pass them via --self you@gmail.com ..."
+        )
+
     automated_domains = tuple(x.lower() for x in (automated_domains or DEFAULT_AUTOMATED_DOMAINS))
     automated_prefixes = tuple(x.lower() for x in (automated_prefixes or DEFAULT_AUTOMATED_PREFIXES))
 
@@ -138,14 +142,16 @@ def extract_relationships(
             d = parse_date(row.get("date", ""))
 
             # SENT by you
-            if sender in self_addresses:
+            if sender in self_addresses_set:
                 other = recipient
                 direction = "sent"
             else:
                 other = sender
                 direction = "received"
 
-            if not other or is_automated(other, self_addresses, automated_domains, automated_prefixes):
+            if not other or is_automated(
+                other, self_addresses_set, automated_domains, automated_prefixes
+            ):
                 continue
 
             rec = people[other]
@@ -189,7 +195,7 @@ def extract_relationships(
             )
 
     print(f"Done. {len(people)} human relationships written to {out_path}")
-    print(f"SELF_EMAILS: {', '.join(sorted(self_addresses))}")
+    print(f"SELF_EMAILS: {', '.join(sorted(self_addresses_set))}")
     print(f"AUTOMATED_DOMAINS: {', '.join(automated_domains)}")
     print(f"AUTOMATED_PREFIXES: {', '.join(automated_prefixes)}")
     return str(out_path)
@@ -212,15 +218,16 @@ def main():
         "--self",
         nargs="*",
         default=None,
-        help="Optional override for your own email addresses (space-separated list). "
-             "If omitted, values come from .env or built-in defaults.",
+        help="Your email address(es), space-separated. If omitted, uses SELF_EMAILS from `.env`.",
     )
     args = parser.parse_args()
+
+    cli_self = args.self if args.self else None
 
     extract_relationships(
         args.in_csv,
         args.out,
-        self_addresses=args.self if args.self else None,
+        self_addresses=cli_self,
     )
 
 

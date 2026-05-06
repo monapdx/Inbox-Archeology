@@ -91,11 +91,40 @@ def _run_subprocess(step: str, cmd: list[str], cwd: Path) -> None:
     print(f"\n→ {step}")
     print("  " + " ".join(cmd))
 
-    result = subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+        if not result.stdout.endswith("\n"):
+            sys.stdout.write("\n")
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+        if not result.stderr.endswith("\n"):
+            sys.stderr.write("\n")
 
     if result.returncode != 0:
+        detail_parts: list[str] = []
+        if result.stderr and result.stderr.strip():
+            detail_parts.append(result.stderr.strip())
+        if result.stdout and result.stdout.strip():
+            tail = result.stdout.strip()
+            if len(tail) > 4000:
+                tail = "... (truncated)\n" + tail[-4000:]
+            detail_parts.append(f"stdout:\n{tail}")
+        detail = (
+            "\n\n".join(detail_parts)
+            if detail_parts
+            else "(no subprocess output captured)"
+        )
         raise RuntimeError(
-            f"Pipeline stopped at step: {step} (exit code {result.returncode})"
+            f"Pipeline stopped at step: {step} (exit code {result.returncode})\n{detail}"
         )
 
 
@@ -132,6 +161,8 @@ def run_pipeline(
                 str(mbox),
                 "--out",
                 str(files["inbox_metadata"]),
+                "--progress-json",
+                str(out_dir / "extract_headers_progress.json"),
             ],
         ),
         (

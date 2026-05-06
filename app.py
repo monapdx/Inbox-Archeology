@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
 
 APP_DIR = Path(__file__).resolve().parent
+
+load_dotenv(APP_DIR / ".env")
 
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
@@ -133,6 +137,12 @@ def main() -> None:
 
         st.markdown("### Workspaces")
         st.code(str(workspaces_dir))
+
+        if not (os.getenv("SELF_EMAILS", "") or "").strip():
+            st.warning(
+                "Set **`SELF_EMAILS`** in a `.env` file at the project root (copy `.env.example`) "
+                "so sent vs received counts are correct."
+            )
 
     if st.session_state.show_dashboard and st.session_state.dashboard_out_dir:
         render_dashboard_view()

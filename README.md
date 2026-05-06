@@ -110,12 +110,13 @@ Typical generated artifacts:
 - `relationships_clean.csv`
 - `core_timeline.csv`
 - `core_timeline.png`
+- `extract_headers_progress.json` (message count while the first step runs; useful for large mailboxes)
 
 ---
 
 ## Environment variables (`.env`)
 
-Create a `.env` file in the project root to customize relationship extraction.
+Copy `.env.example` to `.env` in the project root, then edit values.
 
 ### Identify your own addresses
 
@@ -137,6 +138,13 @@ AUTOMATED_PREFIXES=no-reply@,noreply@,notifications@,donotreply@
 
 After changing `.env`, rerun analysis for affected workspaces.
 
+### Tests (optional)
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ---
 
 ## Privacy
@@ -155,8 +163,10 @@ Your archive stays on your machine unless you move it.
 
 - `app.py` - Streamlit UI and run workflow
 - `pipeline.py` - orchestrates step scripts
+- `ia_constants.py` - shared CORE / RECURRING message thresholds
 - `steps/` - modular processing steps
 - `dashboard.py` - dashboard rendering
+- `tests/` - pytest checks (optional; install via `requirements-dev.txt`)
 - `input/` - source mailbox files
 - `workspaces/` - saved run outputs
 

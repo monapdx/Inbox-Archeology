@@ -37,8 +37,20 @@ def plot_core_timeline(core_timeline_csv: str, save_path: str | None = None):
         if save_path_local:
             sp = Path(save_path_local)
             sp.parent.mkdir(parents=True, exist_ok=True)
-            fig.write_image(str(sp), scale=2)
-            print(f"Saved plot to: {sp}")
+            note_path = sp.parent / f"{sp.stem}_png_export_failed.txt"
+            try:
+                fig.write_image(str(sp), scale=2)
+                print(f"Saved plot to: {sp}")
+                if note_path.exists():
+                    note_path.unlink()
+            except Exception as e:
+                msg = (
+                    f"Plotly static PNG export failed ({type(e).__name__}: {e}). "
+                    "Ensure compatible plotly and kaleido are installed, or rely on Matplotlib when available. "
+                    "Timeline charts in the Streamlit dashboard still work without this PNG."
+                )
+                note_path.write_text(msg + "\n", encoding="utf-8")
+                print(msg)
         else:
             fig.show()
 
@@ -89,9 +101,12 @@ def plot_core_timeline(core_timeline_csv: str, save_path: str | None = None):
     if save_path:
         sp = Path(save_path)
         sp.parent.mkdir(parents=True, exist_ok=True)
+        note_path = sp.parent / f"{sp.stem}_png_export_failed.txt"
         plt.savefig(sp, dpi=200)
         plt.close()
         print(f"Saved plot to: {sp}")
+        if note_path.exists():
+            note_path.unlink()
     else:
         plt.show()
 

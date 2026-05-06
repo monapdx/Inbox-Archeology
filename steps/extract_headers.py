@@ -10,10 +10,19 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import mailbox
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Optional
+
+
+def _write_progress_json(path: Path | None, processed: int, *, done: bool) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"step": "extract_headers", "processed_messages": processed, "done": done}
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _to_iso(date_value: Optional[str]) -> str:
@@ -29,11 +38,18 @@ def _to_iso(date_value: Optional[str]) -> str:
         return ""
 
 
-def extract_headers(mbox_path: str, output_csv: str, progress_every: int = 10000) -> int:
+def extract_headers(
+    mbox_path: str,
+    output_csv: str,
+    progress_every: int = 10000,
+    progress_json: str | None = None,
+) -> int:
     mbox = mailbox.mbox(mbox_path)
 
     out_path = Path(output_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    pj = Path(progress_json) if progress_json else None
+    _write_progress_json(pj, 0, done=False)
 
     count = 0
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -54,8 +70,10 @@ def extract_headers(mbox_path: str, output_csv: str, progress_every: int = 10000
             count += 1
             if progress_every and count % progress_every == 0:
                 print(f"[extract_headers] processed {count:,} messages...")
+                _write_progress_json(pj, count, done=False)
 
     print(f"[extract_headers] wrote {count:,} rows to {out_path}")
+    _write_progress_json(pj, count, done=True)
     return count
 
 
@@ -66,8 +84,14 @@ def main() -> None:
                    help="Output CSV (default: output/inbox_metadata.csv)")
     p.add_argument("--progress-every", type=int, default=10000,
                    help="Print progress every N messages (0 disables).")
+    p.add_argument(
+        "--progress-json",
+        default="",
+        help="Optional path to write JSON progress ({processed_messages, done}) for UIs.",
+    )
     args = p.parse_args()
-    extract_headers(args.mbox, args.out, args.progress_every)
+    pj = args.progress_json.strip() or None
+    extract_headers(args.mbox, args.out, args.progress_every, progress_json=pj)
 
 
 if __name__ == "__main__":

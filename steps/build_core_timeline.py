@@ -11,6 +11,10 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
+import _repo_root  # noqa: F401 — repo root on sys.path
+
+from ia_constants import CORE_MESSAGE_THRESHOLD
+
 
 def parse_dt(s):
     if not s:
@@ -21,7 +25,7 @@ def parse_dt(s):
         return None
 
 
-def build_core_timeline_csv(in_path: str, out_path: str, core_min: int = 100):
+def build_core_timeline_csv(in_path: str, out_path: str, core_min: int = CORE_MESSAGE_THRESHOLD):
     rows = []
 
     with open(in_path, "r", encoding="utf-8", newline="") as f:
@@ -78,7 +82,7 @@ def main():
     parser = argparse.ArgumentParser(description="Build CORE timeline CSV.")
     parser.add_argument("--in", dest="in_csv", default=str(Path("output") / "relationships_clean.csv"))
     parser.add_argument("--out", default=str(Path("output") / "core_timeline.csv"))
-    parser.add_argument("--core-min", type=int, default=100)
+    parser.add_argument("--core-min", type=int, default=CORE_MESSAGE_THRESHOLD)
     args = parser.parse_args()
     build_core_timeline_csv(args.in_csv, args.out, args.core_min)
 
