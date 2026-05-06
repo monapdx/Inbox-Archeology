@@ -1,26 +1,47 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual environments
+*.py[cod]
 .venv/
 venv/
 env/
+.pytest_cache/
+.mypy_cache/
 
 # Streamlit
-.streamlit/
+.streamlit/secrets.toml
 
-# Data outputs
-output/
-workspaces/
-input/
-
-# Gmail exports
+# Data exports / private data
 *.mbox
+*.json
 *.csv
+*.xlsx
+*.sqlite
+*.db
+data/
+exports/
+output/
+results/
 
-# OS
+# Generated charts / plots
+newplot.png
+graphs.png
+
+# Packaged files
+*.zip
+*.exe
+build/
+dist/
+
+# Node, if package-lock is from old packaging attempts
+node_modules/
+
+# OS / editor junk
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
