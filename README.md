@@ -161,6 +161,8 @@ Your archive stays on your machine unless you move it.
 
 ## Project structure
 
+<img src="https://raw.githubusercontent.com/monapdx/Inbox-Archeology/refs/heads/main/diagram%20(1).png">
+
 - `app.py` - Streamlit UI and run workflow
 - `pipeline.py` - orchestrates step scripts
 - `ia_constants.py` - shared CORE / RECURRING message thresholds
